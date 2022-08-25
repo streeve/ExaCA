@@ -7,6 +7,7 @@
 #include "CAfunctions.hpp"
 #include "CAghostnodes.hpp"
 #include "CAprint.hpp"
+#include "Halo.hpp"
 #include "mpi.h"
 
 #include <cmath>
@@ -122,8 +123,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
                                ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
-                               Buffer2D BufferSouthSend) {
+                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Halo &halo) {
 
     Kokkos::parallel_for(
         "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
@@ -146,7 +146,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                 UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
                 // Remove solid cell data from the buffer
                 loadghostnodes(0, 0, 0, 0, 0, BufSizeX, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
-                               AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                               AtSouthBoundary, halo.BufferNorthSend, halo.BufferSouthSend);
             }
             else if ((isNotSolid) && (pastCritTime)) {
                 // Update cell undercooling
@@ -192,7 +192,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                  double DConst, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep,
                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
                  ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
-                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX, int ZBound_Low, int nzActive, int,
+                 Halo &halo, int BufSizeX, int ZBound_Low, int nzActive, int,
                  ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
                  bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
                  ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN) {
@@ -436,7 +436,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                                     // Data loaded into the ghost nodes is for the cell that was just captured
                                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
                                                    MyYSlices, MyNeighborX, MyNeighborY, MyNeighborZ, AtNorthBoundary,
-                                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                                   AtSouthBoundary, halo.BufferSouthSend, halo.BufferNorthSend);
                                 } // End if statement for serial/parallel code
                                 // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
                                 // Diagonal Length values have been assigned to it Avoids the race condition in which
@@ -507,7 +507,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, halo.BufferSouthSend, halo.BufferNorthSend);
                 } // End if statement for serial/parallel code
                 // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
                 CellType(GlobalD3D1ConvPosition) = Active;

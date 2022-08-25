@@ -7,6 +7,7 @@
 #define EXACA_UPDATE_HPP
 
 #include "CAtypes.hpp"
+#include "Halo.hpp"
 
 #include <Kokkos_Core.hpp>
 
@@ -86,14 +87,12 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
                                ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
-                               Buffer2D BufferSouthSend);
+                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Halo &halo);
 void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int LocalDomainSize, int nx, int MyYSlices,
                  double AConst, double BConst, double CConst, double DConst, int MyYOffset, NList NeighborX,
                  NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                  ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferNorthSend,
-                 Buffer2D BufferSouthSend, int BufSizeX, int ZBound_Low, int nzActive, int nz, ViewI SteeringVector,
+                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Halo &halo, int BufSizeX, int ZBound_Low, int nzActive, int nz, ViewI SteeringVector,
                  ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
                  ViewI SolidificationEventCounter, ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory,
                  ViewI NumberOfSolidificationEvents, bool RemeltingYN);
