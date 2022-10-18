@@ -206,10 +206,10 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
             // Cells of interest for the CA - active cells and future active cells
             int RankZ = D3D1ConvPosition / (nx * MyYSlices);
             int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int RankX = Rem / MyYSlices;
+            int GlobalX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
             int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + GlobalX * MyYSlices + RankY;
             if (CellType(GlobalD3D1ConvPosition) == Active) {
                 // Update local diagonal length of active cell
                 double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
@@ -223,7 +223,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                 // Which neighbors should be iterated over?
                 for (int l = 0; l < 26; l++) {
                     // Local coordinates of adjacent cell center
-                    int MyNeighborX = RankX + NeighborX[l];
+                    int MyNeighborX = GlobalX + NeighborX[l];
                     int MyNeighborY = RankY + NeighborY[l];
                     int MyNeighborZ = RankZ + NeighborZ[l];
                     // Check if neighbor is in bounds
@@ -253,7 +253,6 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                             // Only proceed if CellType was previously liquid (this current thread changed the value to
                             // TemporaryUpdate)
                             if (OldCellTypeValue == Liquid) {
-                                int GlobalX = RankX;
                                 int GlobalY = RankY + MyYOffset;
                                 int h = GrainID(GlobalD3D1ConvPosition);
                                 int MyOrientation = getGrainOrientation(h, NGrainOrientations);
@@ -484,7 +483,6 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                                                                     // associated octahedron data is initialized
 
                 // Location of this cell on the global grid
-                int GlobalX = RankX;
                 int GlobalY = RankY + MyYOffset;
                 int MyGrainID = GrainID(GlobalD3D1ConvPosition); // GrainID was assigned as part of Nucleation
 
@@ -508,7 +506,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                     double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
+                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
                                    RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
                 } // End if statement for serial/parallel code
                 // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active

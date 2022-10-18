@@ -392,8 +392,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Determine new active cell domain size and offset from bottom of global domain
             if (RemeltingYN) {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
-                ZBound_Low = calcZBound_Low_Remelt(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
-                ZBound_High = calcZBound_High_Remelt(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
+                ZBound_Low =
+                    calcZBound_Low_Remelt(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
+                ZBound_High = calcZBound_High_Remelt(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin,
+                                                     deltax, nz, ZMaxLayer);
                 nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
                 // Number of active cells on this MPI rank
                 LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
