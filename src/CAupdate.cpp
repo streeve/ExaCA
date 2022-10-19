@@ -192,10 +192,10 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                  double DConst, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep,
                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
                  ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
-                 Halo &halo, int BufSizeX, int ZBound_Low, int nzActive, int,
-                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
-                 bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
-                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN) {
+                 Halo &halo, int BufSizeX, int ZBound_Low, int nzActive, int, ViewI SteeringVector, ViewI numSteer,
+                 ViewI_H numSteer_Host, bool AtNorthBoundary, bool AtSouthBoundary, ViewI SolidificationEventCounter,
+                 ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents,
+                 bool RemeltingYN) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
@@ -507,7 +507,8 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, double ACons
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, halo.BufferSouthSend, halo.BufferNorthSend);
+                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, halo.BufferSouthSend,
+                                   halo.BufferNorthSend);
                 } // End if statement for serial/parallel code
                 // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
                 CellType(GlobalD3D1ConvPosition) = Active;

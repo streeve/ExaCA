@@ -1724,8 +1724,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
                                      ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed,
-                                     int np, Halo &halo, int BufSizeX,
-                                     bool AtNorthBoundary, bool AtSouthBoundary) {
+                                     int np, Halo &halo, int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary) {
 
     // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
@@ -1798,7 +1797,8 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   LocalY, 0, AtNorthBoundary, AtSouthBoundary, halo.BufferNorthSend, halo.BufferSouthSend);
+                                   LocalY, 0, AtNorthBoundary, AtSouthBoundary, halo.BufferNorthSend,
+                                   halo.BufferSouthSend);
                 } // End if statement for serial/parallel code
             }
         });
@@ -2026,7 +2026,8 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                            int nz, int LocalActiveDomainSize, int LocalDomainSize, ViewI CellType, ViewI CritTimeStep,
                            NList NeighborX, NList NeighborY, NList NeighborZ, int NGrainOrientations,
                            ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID, ViewF CritDiagonalLength,
-                           ViewF DOCenter, ViewI LayerID, Halo &halo, int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary) {
+                           ViewF DOCenter, ViewI LayerID, Halo &halo, int BufSizeX, bool AtNorthBoundary,
+                           bool AtSouthBoundary) {
 
     // Start with all cells as solid for the first layer, with liquid cells where temperature data exists
     if (layernumber == 0) {
@@ -2121,7 +2122,8 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, halo.BufferNorthSend, halo.BufferSouthSend);
+                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, halo.BufferNorthSend,
+                                   halo.BufferSouthSend);
                 } // End if statement for serial/parallel code
             }
         });
@@ -2429,5 +2431,4 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeZ, ViewF
 
     // Reset halo region structures on device
     halo.reset(BufSizeX * BufSizeZ);
-
 }

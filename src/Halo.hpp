@@ -21,7 +21,6 @@
 class Halo {
 
   public:
-
     ViewBuffer BufferSouthSend, BufferSouthRecv, BufferNorthSend, BufferNorthRecv;
     //-Constructor
     Halo(const int BufSizeX, const int BufSizeZ);

@@ -203,7 +203,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Buffers for ghost node data (fixed size)
     int BufSizeX = nx;
     int BufSizeZ = nzActive;
-    
+
     // Initialize send/recv buffers for halo region
     Halo halo(BufSizeX, BufSizeZ);
 
@@ -213,7 +213,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (SimulationType == "C") {
         SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
                                         NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID,
-                                        DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed, np, halo, BufSizeX, AtNorthBoundary, AtSouthBoundary);
+                                        DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed, np, halo, BufSizeX,
+                                        AtNorthBoundary, AtSouthBoundary);
     }
     else {
         if (UseSubstrateFile)
@@ -230,8 +231,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             CellTypeInit_NoRemelt(0, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz, LocalActiveDomainSize,
                                   LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ,
                                   NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength,
-                                  DOCenter, LayerID, halo, BufSizeX, AtNorthBoundary,
-                                  AtSouthBoundary);
+                                  DOCenter, LayerID, halo, BufSizeX, AtNorthBoundary, AtSouthBoundary);
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -343,10 +343,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             CellCapture(id, np, cycle, LocalActiveDomainSize, LocalDomainSize, nx, MyYSlices, AConst, BConst, CConst,
                         DConst, MyYOffset, NeighborX, NeighborY, NeighborZ, CritTimeStep, UndercoolingCurrent,
                         UndercoolingChange, GrainUnitVector, CritDiagonalLength, DiagonalLength, CellType, DOCenter,
-                        GrainID, NGrainOrientations, halo, BufSizeX, ZBound_Low, nzActive,
-                        nz, SteeringVector, numSteer, numSteer_Host, AtNorthBoundary, AtSouthBoundary,
-                        SolidificationEventCounter, MeltTimeStep, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                        RemeltingYN);
+                        GrainID, NGrainOrientations, halo, BufSizeX, ZBound_Low, nzActive, nz, SteeringVector, numSteer,
+                        numSteer_Host, AtNorthBoundary, AtSouthBoundary, SolidificationEventCounter, MeltTimeStep,
+                        LayerTimeTempHistory, NumberOfSolidificationEvents, RemeltingYN);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
@@ -426,7 +425,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Resize and zero all view data relating to the active region from the last layer, in preparation for the
             // next layer
-            ZeroResetViews(LocalActiveDomainSize, BufSizeX, BufSizeZ, DiagonalLength, CritDiagonalLength, DOCenter, halo, SteeringVector);
+            ZeroResetViews(LocalActiveDomainSize, BufSizeX, BufSizeZ, DiagonalLength, CritDiagonalLength, DOCenter,
+                           halo, SteeringVector);
 
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)
@@ -447,7 +447,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 CellTypeInit_NoRemelt(layernumber + 1, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz,
                                       LocalActiveDomainSize, LocalDomainSize, CellType, CritTimeStep, NeighborX,
                                       NeighborY, NeighborZ, NGrainOrientations, GrainUnitVector, DiagonalLength,
-                                      GrainID, CritDiagonalLength, DOCenter, LayerID, halo, BufSizeX, AtNorthBoundary, AtSouthBoundary);
+                                      GrainID, CritDiagonalLength, DOCenter, LayerID, halo, BufSizeX, AtNorthBoundary,
+                                      AtSouthBoundary);
 
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for

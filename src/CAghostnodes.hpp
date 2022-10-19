@@ -15,7 +15,8 @@
 KOKKOS_INLINE_FUNCTION void loadghostnodes(const int GhostGID, const float GhostDOCX, const float GhostDOCY,
                                            const float GhostDOCZ, const float GhostDL, const int BufSizeX,
                                            const int MyYSlices, const int RankX, const int RankY, const int RankZ,
-                                           const bool AtNorthBoundary, const bool AtSouthBoundary, ViewBuffer BufferSouthSend, ViewBuffer BufferNorthSend) {
+                                           const bool AtNorthBoundary, const bool AtSouthBoundary,
+                                           ViewBuffer BufferSouthSend, ViewBuffer BufferNorthSend) {
 
     if ((RankY == 1) && (!(AtSouthBoundary))) {
         int GNPosition = RankZ * BufSizeX + RankX;
@@ -36,6 +37,7 @@ KOKKOS_INLINE_FUNCTION void loadghostnodes(const int GhostGID, const float Ghost
 }
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int MyYSlices, int MyYOffset,
                   NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                  ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Halo &halo, int BufSizeX, int BufSizeZ, int ZBound_Low);
+                  ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations,
+                  Halo &halo, int BufSizeX, int BufSizeZ, int ZBound_Low);
 
 #endif

@@ -92,10 +92,10 @@ void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int Local
                  double AConst, double BConst, double CConst, double DConst, int MyYOffset, NList NeighborX,
                  NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                  ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Halo &halo, int BufSizeX, int ZBound_Low, int nzActive, int nz, ViewI SteeringVector,
-                 ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
-                 ViewI SolidificationEventCounter, ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory,
-                 ViewI NumberOfSolidificationEvents, bool RemeltingYN);
+                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Halo &halo, int BufSizeX,
+                 int ZBound_Low, int nzActive, int nz, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
+                 bool AtNorthBoundary, bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, ViewI FutureWorkView,
                   unsigned long int LocalIncompleteCells, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low,
                   bool RemeltingYN, ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny,

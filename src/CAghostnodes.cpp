@@ -22,12 +22,16 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(halo.BufferSouthSend.data(), halo.BufferSouthSend.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_South, 0, MPI_COMM_WORLD, &SendRequests[0]);
-    MPI_Isend(halo.BufferNorthSend.data(), halo.BufferNorthSend.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_North, 0, MPI_COMM_WORLD, &SendRequests[1]);
+    MPI_Isend(halo.BufferSouthSend.data(), halo.BufferSouthSend.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_South,
+              0, MPI_COMM_WORLD, &SendRequests[0]);
+    MPI_Isend(halo.BufferNorthSend.data(), halo.BufferNorthSend.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_North,
+              0, MPI_COMM_WORLD, &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(halo.BufferSouthRecv.data(), halo.BufferSouthRecv.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_South, 0, MPI_COMM_WORLD, &RecvRequests[0]);
-    MPI_Irecv(halo.BufferNorthRecv.data(), halo.BufferNorthRecv.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_North, 0, MPI_COMM_WORLD, &RecvRequests[1]);
+    MPI_Irecv(halo.BufferSouthRecv.data(), halo.BufferSouthRecv.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_South,
+              0, MPI_COMM_WORLD, &RecvRequests[0]);
+    MPI_Irecv(halo.BufferNorthRecv.data(), halo.BufferNorthRecv.size() * sizeof(Buffer), MPI_BYTE, NeighborRank_North,
+              0, MPI_COMM_WORLD, &RecvRequests[1]);
 
     // unpack in any order
     bool unpack_complete = false;
@@ -56,7 +60,8 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
-                        if ((halo.BufferSouthRecv(BufPosition).DiagonalLength > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                        if ((halo.BufferSouthRecv(BufPosition).DiagonalLength > 0) &&
+                            (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = halo.BufferSouthRecv(BufPosition).GrainID;
                             DOCenterX = halo.BufferSouthRecv(BufPosition).DOCenterX;
@@ -70,7 +75,8 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
-                        if ((halo.BufferNorthRecv(BufPosition).DiagonalLength > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                        if ((halo.BufferNorthRecv(BufPosition).DiagonalLength > 0) &&
+                            (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = halo.BufferNorthRecv(BufPosition).GrainID;
                             DOCenterX = halo.BufferNorthRecv(BufPosition).DOCenterX;

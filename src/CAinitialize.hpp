@@ -96,8 +96,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
                                      ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed,
-                                     int np, Halo &halo, int BufSizeX,
-                                     bool AtNorthBoundary, bool AtSouthBoundary);
+                                     int np, Halo &halo, int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int pid,
                             ViewI &GrainID, int nzActive, bool BaseplateThroughPowder);
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
@@ -112,7 +111,8 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                            int nz, int LocalActiveDomainSize, int LocalDomainSize, ViewI CellType, ViewI CritTimeStep,
                            NList NeighborX, NList NeighborY, NList NeighborZ, int NGrainOrientations,
                            ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID, ViewF CritDiagonalLength,
-                           ViewF DOCenter, ViewI LayerID, Halo &halo, int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary);
+                           ViewF DOCenter, ViewI LayerID, Halo &halo, int BufSizeX, bool AtNorthBoundary,
+                           bool AtSouthBoundary);
 void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, int nx, int ny, int nzActive,
                 int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax, ViewI &NucleiLocation,
                 ViewI_H &NucleationTimes_Host, ViewI &NucleiGrainID, ViewI CellType, ViewI CritTimeStep,

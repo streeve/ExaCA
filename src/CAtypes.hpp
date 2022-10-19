@@ -38,7 +38,7 @@ typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
 
 typedef Kokkos::Array<int, 26> NList;
 
-struct Buffer{
+struct Buffer {
     int GrainID;
     float DiagonalLength;
     float DOCenterX;
