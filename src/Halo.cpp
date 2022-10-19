@@ -43,3 +43,5 @@ void Halo::reset(const int Buffersize) {
             BufferNorthRecv(i).DiagonalLength = 0;
         });
 }
+
+Halo::~Halo() {}
