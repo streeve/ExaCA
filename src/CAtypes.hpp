@@ -38,12 +38,47 @@ typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
 
 typedef Kokkos::Array<int, 26> NList;
 
-struct CommData {
-    int GrainID;
-    float DiagonalLength;
-    float DOCenterX;
-    float DOCenterY;
-    float DOCenterZ;
+namespace Impl {
+
+template <typename... Types>
+struct MemberTypes {
+    static constexpr std::size_t size = sizeof...(Types);
 };
-typedef Kokkos::View<CommData *> ViewBuffer;
+
+template <std::size_t M, typename T, typename... Types>
+struct MemberTypeAtIndexImpl;
+
+template <typename T, typename... Types>
+struct MemberTypeAtIndexImpl<0, T, Types...> {
+    using type = T;
+};
+
+template <std::size_t M, typename T, typename... Types>
+struct MemberTypeAtIndexImpl {
+    using type = typename MemberTypeAtIndexImpl<M - 1, Types...>::type;
+};
+
+//! Get the type of the member at a given index.
+template <std::size_t M, typename... Types>
+struct MemberTypeAtIndex;
+
+//! Get the type of the member at a given index.
+template <std::size_t M, typename... Types>
+struct MemberTypeAtIndex<M, MemberTypes<Types...>> {
+    //! Member type.
+    using type = typename MemberTypeAtIndexImpl<M, Types...>::type;
+};
+
+} // namespace Impl
+
+// Forward declaration.
+template <typename Types>
+struct CommData;
+
+template <typename... Types>
+struct CommData<Impl::MemberTypes<Types...>> {};
+
+typedef Impl::MemberTypes<int, float, float, float, float> CommMemberTypes;
+typedef Kokkos::View<CommData<CommMemberTypes> *> ViewBuffer;
+
 #endif
