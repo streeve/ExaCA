@@ -6,6 +6,7 @@
 #ifndef EXACA_UPDATE_HPP
 #define EXACA_UPDATE_HPP
 
+#include "CAghostnodes.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAtypes.hpp"
 
@@ -85,31 +86,25 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
                                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
                                  int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G,
                                  ViewI_H numSteer_H);
-void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
-                               NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                               ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
-                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
-                               Buffer2D BufferSouthSend);
-void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int LocalDomainSize, int nx, int MyYSlices,
-                 InterfacialResponseFunction irf, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
+void FillSteeringVector_Remelt(int cycle, Halo halo, int LocalActiveDomainSize, NList NeighborX, NList NeighborY,
+                               NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange,
+                               ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive, ViewI SteeringVector,
+                               ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep);
+void CellCapture(Halo halo, InterfacialResponseFunction irf, NList NeighborX, NList NeighborY, NList NeighborZ,
                  ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
                  ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                 int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX,
-                 int ZBound_Low, int nzActive, int nz, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
-                 bool AtNorthBoundary, bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
-                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN);
-void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, ViewI FutureWorkView,
-                  unsigned long int LocalIncompleteCells, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low,
-                  bool RemeltingYN, ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny,
-                  int nz, int MyYOffset, ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector,
-                  ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string OutputFile,
+                 int NGrainOrientations, int ZBound_Low, int nzActive, ViewI SteeringVector, ViewI numSteer_G,
+                 ViewI_H numSteer_H, ViewI SolidificationEventCounter, ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory,
+                 ViewI NumberOfSolidificationEvents, bool RemeltingYN);
+void JumpTimeStep(int &cycle, Halo halo, unsigned long int RemainingCellsOfInterest, ViewI FutureWorkView,
+                  unsigned long int LocalIncompleteCells, int LocalActiveDomainSize, int ZBound_Low, bool RemeltingYN,
+                  ViewI CellType, ViewI LayerID, int layernumber, ViewI GrainID, ViewI CritTimeStep,
+                  ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string OutputFile,
                   int DecompositionStrategy, int NGrainOrientations, std::string PathToOutput,
                   int &IntermediateFileCounter, int nzActive, double deltax, double XMin, double YMin, double ZMin,
                   int NumberOfLayers, int &XSwitch, std::string TemperatureDataType, bool PrintIdleMovieFrames,
                   int MovieFrameInc, bool PrintBinary, int FinishTimeStep);
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalDomainSize,
-                                int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+void IntermediateOutputAndCheck(int &cycle, Halo halo, int LocalActiveDomainSize, int nzActive, double deltax,
                                 double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
                                 ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType,
                                 int *FinishTimeStep, int layernumber, int, int ZBound_Low, int NGrainOrientations,
@@ -117,12 +112,14 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int M
                                 ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile,
                                 bool PrintIdleMovieFrames, int MovieFrameInc, int &IntermediateFileCounter,
                                 int NumberOfLayers, bool PrintBinary);
-void IntermediateOutputAndCheck_Remelt(
-    int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalActiveDomainSize, int nx, int ny, int nz,
-    int nzActive, double deltax, double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
-    ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType, int layernumber, int,
-    int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
-    ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
-    int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep, bool PrintBinary);
+void IntermediateOutputAndCheck_Remelt(int &cycle, Halo halo, int LocalActiveDomainSize, int nzActive, double deltax,
+                                       double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank,
+                                       int &XSwitch, ViewI CellType, ViewI CritTimeStep, ViewI GrainID,
+                                       std::string TemperatureDataType, int layernumber, int, int ZBound_Low,
+                                       int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector,
+                                       ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput,
+                                       std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                       int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep,
+                                       bool PrintBinary);
 
 #endif

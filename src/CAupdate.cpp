@@ -118,12 +118,12 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step - version with remelting
-void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
-                               NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                               ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
-                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
-                               Buffer2D BufferSouthSend) {
+void FillSteeringVector_Remelt(int cycle, Halo halo, int LocalActiveDomainSize, NList NeighborX, NList NeighborY,
+                               NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange,
+                               ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive, ViewI SteeringVector,
+                               ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep) {
+    auto nx = halo.global_x;
+    auto MyYSlices = halo.local_y;
 
     Kokkos::parallel_for(
         "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
@@ -145,8 +145,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                 // Reset current undercooling to zero
                 UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
                 // Remove solid cell data from the buffer
-                loadghostnodes(0, 0, 0, 0, 0, BufSizeX, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
-                               AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                halo.fill(0, 0, 0, 0, 0, RankX, RankY, RankZ);
             }
             else if ((isNotSolid) && (pastCritTime)) {
                 // Update cell undercooling
@@ -188,14 +187,15 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
 }
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialResponseFunction irf, int MyYOffset,
-                 NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                 ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferNorthSend,
-                 Buffer2D BufferSouthSend, int BufSizeX, int ZBound_Low, int nzActive, int, ViewI SteeringVector,
-                 ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary, bool AtSouthBoundary,
-                 ViewI SolidificationEventCounter, ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory,
-                 ViewI NumberOfSolidificationEvents, bool RemeltingYN) {
+void CellCapture(Halo halo, InterfacialResponseFunction irf, NList NeighborX, NList NeighborY, NList NeighborZ,
+                 ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
+                 ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID,
+                 int NGrainOrientations, int ZBound_Low, int nzActive, ViewI SteeringVector, ViewI numSteer,
+                 ViewI_H numSteer_Host, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN) {
+    auto nx = halo.global_x;
+    auto MyYSlices = halo.local_y;
+    auto MyYOffset = halo.offset_y;
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
@@ -424,7 +424,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                                        NeighborY, NeighborZ, MyOrientation, GrainUnitVector,
                                                        CritDiagonalLength);
 
-                                if (np > 1) {
+                                if (halo.mpi_size > 1) {
 
                                     double GhostGID = static_cast<double>(h);
                                     double GhostDOCX = cx;
@@ -433,9 +433,8 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                     double GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
-                                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                   MyYSlices, MyNeighborX, MyNeighborY, MyNeighborZ, AtNorthBoundary,
-                                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                    halo.fill(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, MyNeighborX,
+                                              MyNeighborY, MyNeighborZ);
                                 } // End if statement for serial/parallel code
                                 // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
                                 // Diagonal Length values have been assigned to it Avoids the race condition in which
@@ -497,7 +496,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                 // cell. Octahedron center and cell center overlap for octahedra created as part of a new grain
                 calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
                                        MyOrientation, GrainUnitVector, CritDiagonalLength);
-                if (np > 1) {
+                if (halo.mpi_size > 1) {
 
                     double GhostGID = static_cast<double>(MyGrainID);
                     double GhostDOCX = static_cast<double>(GlobalX + 0.5);
@@ -505,8 +504,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                     double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                    halo.fill(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, GlobalX, RankY, RankZ);
                 } // End if statement for serial/parallel code
                 // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
                 CellType(GlobalD3D1ConvPosition) = Active;
@@ -520,14 +518,16 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
 // Without remelting, the cells of interest are undercooled liquid cells, and the view checked for future work is
 // CritTimeStep With remelting, the cells of interest are active cells, and the view checked for future work is
 // MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
-void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalIncompleteCells,
-                  ViewI FutureWorkView, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low, bool RemeltingYN,
-                  ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyYOffset,
-                  ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange,
-                  ViewF UndercoolingCurrent, std::string OutputFile, int NGrainOrientations, std::string PathToOutput,
+void JumpTimeStep(int &cycle, Halo halo, unsigned long int RemainingCellsOfInterest,
+                  unsigned long int LocalIncompleteCells, ViewI FutureWorkView, int LocalActiveDomainSize,
+                  int ZBound_Low, bool RemeltingYN, ViewI CellType, ViewI LayerID, int layernumber, ViewI GrainID,
+                  ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
+                  std::string OutputFile, int NGrainOrientations, std::string PathToOutput,
                   int &IntermediateFileCounter, int nzActive, double deltax, double XMin, double YMin, double ZMin,
                   int NumberOfLayers, int &XSwitch, std::string TemperatureDataType, bool PrintIdleMovieFrames,
                   int MovieFrameInc, bool PrintBinary, int FinishTimeStep = 0) {
+    auto nx = halo.global_x;
+    auto MyYSlices = halo.local_y;
 
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
@@ -571,18 +571,17 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                         // Print current state of ExaCA simulation (up to and including the current layer's data)
                         // Host mirrors of CellType and GrainID are not maintained - pass device views and perform
                         // copy inside of subroutine
-                        PrintExaCAData(id, layernumber, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep,
-                                       GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent,
-                                       OutputFile, NGrainOrientations, PathToOutput, 0, false, false, false, true,
-                                       false, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                                       NumberOfLayers, PrintBinary);
+                        PrintExaCAData(layernumber, halo, GrainID, CritTimeStep, GrainUnitVector, LayerID, CellType,
+                                       UndercoolingChange, UndercoolingCurrent, OutputFile, NGrainOrientations,
+                                       PathToOutput, 0, false, false, false, true, false, IntermediateFileCounter,
+                                       ZBound_Low, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, PrintBinary);
                         IntermediateFileCounter++;
                     }
                 }
             }
             // Jump to next time step when solidification starts again
             cycle = GlobalNextWorkTimeStep - 1;
-            if (id == 0)
+            if (halo.mpi_rank == 0)
                 std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
         }
         // If all cells have cooled below solidus, jump to next layer (no remelting/using input temp data only)
@@ -593,8 +592,7 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout, checks to see if solidification is complete
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalDomainSize,
-                                int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+void IntermediateOutputAndCheck(int &cycle, Halo halo, int LocalActiveDomainSize, int nzActive, double deltax,
                                 double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
                                 ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType,
                                 int *FinishTimeStep, int layernumber, int, int ZBound_Low, int NGrainOrientations,
@@ -609,7 +607,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int M
     unsigned long int LocalSolidCells;
     unsigned long int LocalRemainingLiquidCells;
     Kokkos::parallel_reduce(
-        LocalDomainSize,
+        halo.local_xyz,
         KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &sum_superheated,
                       unsigned long int &sum_undercooled, unsigned long int &sum_active, unsigned long int &sum_solid,
                       unsigned long int &sum_remaining_liquid) {
@@ -644,7 +642,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int M
     MPI_Reduce(&SuccessfulNucEvents_ThisRank, &Global_SuccessfulNucEvents_ThisRank, 1, MPI_INT, MPI_SUM, 0,
                MPI_COMM_WORLD);
 
-    if (id == 0) {
+    if (halo.mpi_rank == 0) {
         std::cout << "cycle = " << cycle << " Superheated liquid cells = " << GlobalSuperheatedCells
                   << " Undercooled liquid cells = " << GlobalUndercooledCells
                   << " Number of nucleation events this layer " << Global_SuccessfulNucEvents_ThisRank
@@ -658,24 +656,28 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int M
     // If an appropraite problem type/solidification is not finished, jump to the next time step with work to be done,
     // if nothing left to do in the near future
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, GlobalUndercooledCells, LocalSuperheatedCells, CritTimeStep, LocalActiveDomainSize,
-                     MyYSlices, ZBound_Low, false, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyYOffset,
-                     GrainID, CritTimeStep, GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile,
-                     NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
-                     NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, PrintBinary,
+        JumpTimeStep(cycle, halo, GlobalUndercooledCells, LocalSuperheatedCells, CritTimeStep, LocalActiveDomainSize,
+                     ZBound_Low, false, CellType, LayerID, layernumber, GrainID, CritTimeStep, GrainUnitVector,
+                     UndercoolingChange, UndercoolingCurrent, OutputFile, NGrainOrientations, PathToOutput,
+                     IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, XSwitch,
+                     TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, PrintBinary,
                      FinishTimeStep[layernumber]);
 }
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout (intermediate output collected and printed is different than without
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
-void IntermediateOutputAndCheck_Remelt(
-    int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalActiveDomainSize, int nx, int ny, int nz,
-    int nzActive, double deltax, double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
-    ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType, int layernumber, int,
-    int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
-    ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
-    int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep, bool PrintBinary) {
+void IntermediateOutputAndCheck_Remelt(int &cycle, Halo halo, int LocalActiveDomainSize, int nzActive, double deltax,
+                                       double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank,
+                                       int &XSwitch, ViewI CellType, ViewI CritTimeStep, ViewI GrainID,
+                                       std::string TemperatureDataType, int layernumber, int, int ZBound_Low,
+                                       int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector,
+                                       ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput,
+                                       std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                       int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep,
+                                       bool PrintBinary) {
+    auto nx = halo.global_x;
+    auto MyYSlices = halo.local_y;
 
     unsigned long int LocalSuperheatedCells;
     unsigned long int LocalUndercooledCells;
@@ -714,7 +716,7 @@ void IntermediateOutputAndCheck_Remelt(
     MPI_Reduce(&SuccessfulNucEvents_ThisRank, &Global_SuccessfulNucEvents_ThisRank, 1, MPI_INT, MPI_SUM, 0,
                MPI_COMM_WORLD);
 
-    if (id == 0) {
+    if (halo.mpi_rank == 0) {
         std::cout << "cycle = " << cycle << " in layer " << layernumber
                   << ": Superheated liquid cells = " << GlobalSuperheatedCells
                   << " Undercooled liquid cells = " << GlobalUndercooledCells
@@ -726,9 +728,9 @@ void IntermediateOutputAndCheck_Remelt(
     }
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, GlobalActiveCells, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize, MyYSlices,
-                     ZBound_Low, true, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyYOffset, GrainID,
-                     CritTimeStep, GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile,
-                     NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
-                     NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, PrintBinary);
+        JumpTimeStep(cycle, halo, GlobalActiveCells, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize,
+                     ZBound_Low, true, CellType, LayerID, layernumber, GrainID, CritTimeStep, GrainUnitVector,
+                     UndercoolingChange, UndercoolingCurrent, OutputFile, NGrainOrientations, PathToOutput,
+                     IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, XSwitch,
+                     TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, PrintBinary);
 }

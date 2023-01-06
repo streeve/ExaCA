@@ -17,12 +17,7 @@ KOKKOS_INLINE_FUNCTION int getGrainOrientation(int MyGrainID, int NGrainOrientat
     return MyOrientation;
 }
 //*****************************************************************************/
-int YMPSlicesCalc(int p, int ny, int np);
-int YOffsetCalc(int p, int ny, int np);
-void AddGhostNodes(int NeighborRank_North, int NeighborRank_South, int &MyYSlices, int &MyYOffset);
 double MaxVal(double TestVec3[6], int NVals);
-void InitialDecomposition(int id, int np, int &NeighborRank_North, int &NeighborRank_South, bool &AtNorthBoundary,
-                          bool &AtSouthBoundary);
 ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, int dir);
 
 #endif

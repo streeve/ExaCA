@@ -13,61 +13,6 @@
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/
 
 //*****************************************************************************/
-int YMPSlicesCalc(int p, int ny, int np) {
-    int YRemoteMPSlices = 0;
-    int YSlicesPerP = ny / np;
-    int YRemainder = ny % np;
-    if (YRemainder == 0) {
-        YRemoteMPSlices = YSlicesPerP;
-    }
-    else {
-        if (YRemainder > p) {
-            YRemoteMPSlices = YSlicesPerP + 1;
-        }
-        else {
-            YRemoteMPSlices = YSlicesPerP;
-        }
-    }
-    return YRemoteMPSlices;
-}
-
-//*****************************************************************************/
-int YOffsetCalc(int p, int ny, int np) {
-    int RemoteYOffset = 0;
-    int YSlicesPerP = ny / np;
-    int YRemainder = ny % np;
-    if (YRemainder == 0) {
-        RemoteYOffset = p * YSlicesPerP;
-    }
-    else {
-        if (YRemainder > p) {
-            RemoteYOffset = p * (YSlicesPerP + 1);
-        }
-        else {
-            RemoteYOffset = (YSlicesPerP + 1) * (YRemainder - 1) + YSlicesPerP + 1 + (p - YRemainder) * YSlicesPerP;
-        }
-    }
-    return RemoteYOffset;
-}
-
-// Add ghost nodes to the appropriate subdomains (added where the subdomains overlap, but not at edges of physical
-// domain)
-void AddGhostNodes(int NeighborRank_North, int NeighborRank_South, int &MyYSlices, int &MyYOffset) {
-
-    // Add halo regions in Y direction if this subdomain borders subdomains on other processors
-    // If only 1 rank in the y direction, no halo regions - subdomain is coincident with overall simulation domain
-    // If multiple ranks in the y direction, either 1 halo region (borders another rank's subdomain in either the +y or
-    // -y direction) or 2 halo regions (if it borders other rank's subdomains in both the +y and -y directions)
-    if (NeighborRank_North != MPI_PROC_NULL)
-        MyYSlices++;
-    if (NeighborRank_South != MPI_PROC_NULL) {
-        MyYSlices++;
-        // Also adjust subdomain offset, as these ghost nodes were added on the -y side of the subdomain
-        MyYOffset--;
-    }
-}
-
-//*****************************************************************************/
 int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices) {
     int ItBounds;
     // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
@@ -112,36 +57,6 @@ int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices) {
         }
     }
     return ItBounds;
-}
-
-//*****************************************************************************/
-// Determine the mapping of processors to grid data
-void InitialDecomposition(int id, int np, int &NeighborRank_North, int &NeighborRank_South, bool &AtNorthBoundary,
-                          bool &AtSouthBoundary) {
-
-    if (np > 1) {
-        NeighborRank_South = id - 1;
-        NeighborRank_North = id + 1;
-        if (id == 0)
-            NeighborRank_South = MPI_PROC_NULL;
-        if (id == np - 1)
-            NeighborRank_North = MPI_PROC_NULL;
-    }
-    else {
-        // No MPI communication
-        NeighborRank_North = MPI_PROC_NULL;
-        NeighborRank_South = MPI_PROC_NULL;
-    }
-
-    // Based on the decomposition, store whether each MPI rank is each boundary or not
-    if (NeighborRank_North == MPI_PROC_NULL)
-        AtNorthBoundary = true;
-    else
-        AtNorthBoundary = false;
-    if (NeighborRank_South == MPI_PROC_NULL)
-        AtSouthBoundary = true;
-    else
-        AtSouthBoundary = false;
 }
 
 // Create a view of size "NumberOfOrientation" of the misorientation of each possible grain orientation with the X, Y,

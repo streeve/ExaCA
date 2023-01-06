@@ -642,29 +642,6 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
     }
 }
 
-// Decompose the domain into subdomains on each MPI rank: Calculate MyYSlices and MyYOffset for each rank, where each
-// subdomain contains "MyYSlices" in Y, offset from the full domain origin by "MyYOffset" cells in Y
-void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &NeighborRank_North,
-                         int &NeighborRank_South, int &nx, int &ny, int &nz, long int &LocalDomainSize,
-                         bool &AtNorthBoundary, bool &AtSouthBoundary) {
-
-    // Compare total MPI ranks to total Y cells.
-    if (np > ny)
-        throw std::runtime_error("Error: Cannot run with more MPI ranks than cells in Y (decomposition direction).");
-
-    // Determine which subdomains are at which locations on the grid relative to the others
-    InitialDecomposition(id, np, NeighborRank_North, NeighborRank_South, AtNorthBoundary, AtSouthBoundary);
-    // Determine, for each MPI process id, the local grid size in x and y (and the offsets in x and y relative to the
-    // overall simulation domain)
-    MyYOffset = YOffsetCalc(id, ny, np);
-    MyYSlices = YMPSlicesCalc(id, ny, np);
-
-    // Add ghost nodes at subdomain overlaps
-    AddGhostNodes(NeighborRank_North, NeighborRank_South, MyYSlices, MyYOffset);
-
-    LocalDomainSize = nx * MyYSlices * nz; // Number of cells on this MPI rank
-}
-
 // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate data
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyYSlices, int MyYOffset,
                          double YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
@@ -1601,12 +1578,14 @@ void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, 
 
 // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom surface of
 // the constrained domain. Also initialize active cell data structures associated with the substrate grains
-void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyYSlices, int nx, int ny,
-                                     int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
+void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
                                      ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed,
-                                     int np, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX,
-                                     bool AtNorthBoundary, bool AtSouthBoundary) {
+                                     Halo halo) {
+    auto nx = halo.global_x;
+    auto ny = halo.global_y;
+    auto MyYSlices = halo.local_y;
+    auto MyYOffset = halo.offset_y;
 
     // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
@@ -1670,7 +1649,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                 calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
                                        MyOrientation, GrainUnitVector, CritDiagonalLength);
                 // If this new active cell is in the halo region, load the send buffers
-                if (np > 1) {
+                if (halo.mpi_size > 1) {
 
                     float GhostGID = GrainID(D3D1ConvPosition);
                     float GhostDOCX = GlobalX + 0.5;
@@ -1678,12 +1657,11 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                     float GhostDOCZ = GlobalZ + 0.5;
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                    halo.fill(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, GlobalX, LocalY, 0);
                 } // End if statement for serial/parallel code
             }
         });
-    if (id == 0)
+    if (halo.mpi_rank == 0)
         std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
 }
 
@@ -1934,12 +1912,17 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
 
 //*****************************************************************************/
 // Initializes cells at border of solid and liquid as active type - performed on device
-void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlices, int MyYOffset, int ZBound_Low,
-                           int nz, int LocalActiveDomainSize, int LocalDomainSize, ViewI CellType, ViewI CritTimeStep,
-                           NList NeighborX, NList NeighborY, NList NeighborZ, int NGrainOrientations,
-                           ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID, ViewF CritDiagonalLength,
-                           ViewF DOCenter, ViewI LayerID, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                           int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary) {
+void CellTypeInit_NoRemelt(int layernumber, Halo halo, int ZBound_Low, int LocalActiveDomainSize, ViewI CellType,
+                           ViewI CritTimeStep, NList NeighborX, NList NeighborY, NList NeighborZ,
+                           int NGrainOrientations, ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID,
+                           ViewF CritDiagonalLength, ViewF DOCenter, ViewI LayerID) {
+    auto nx = halo.global_x;
+    auto ny = halo.global_y;
+    auto nz = halo.global_z;
+    auto np = halo.mpi_size;
+    auto MyYSlices = halo.local_y;
+    auto MyYOffset = halo.offset_y;
+    auto LocalDomainSize = halo.local_xyz;
 
     // Start with all cells as solid for the first layer, with liquid cells where temperature data exists
     if (layernumber == 0) {
@@ -1991,7 +1974,7 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
         Kokkos::fence();
         int TotalSubstrateActCells;
         MPI_Reduce(&ActCellCount, &TotalSubstrateActCells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-        if (id == 0)
+        if (halo.mpi_rank == 0)
             std::cout << "Number of initial substrate active cells across all ranks and all layers: "
                       << TotalSubstrateActCells << std::endl;
     }
@@ -2025,7 +2008,7 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                 calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
                                        MyOrientation, GrainUnitVector, CritDiagonalLength);
                 // If this new active cell is in the halo region, load the send buffers
-                if (np > 1) {
+                if (halo.mpi_size > 1) {
 
                     double GhostGID = static_cast<double>(MyGrainID);
                     double GhostDOCX = static_cast<double>(GlobalX + 0.5);
@@ -2033,8 +2016,7 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                     double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                    halo.fill(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, GlobalX, RankY, RankZ);
 
                 } // End if statement for serial/parallel code
             }
@@ -2321,9 +2303,8 @@ void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, i
 }
 
 //*****************************************************************************/
-void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeZ, ViewF &DiagonalLength,
-                    ViewF &CritDiagonalLength, ViewF &DOCenter, Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend,
-                    Buffer2D &BufferNorthRecv, Buffer2D &BufferSouthRecv, ViewI &SteeringVector) {
+void ZeroResetViews(int LocalActiveDomainSize, ViewF &DiagonalLength, ViewF &CritDiagonalLength, ViewF &DOCenter,
+                    ViewI &SteeringVector) {
 
     // Realloc steering vector as LocalActiveDomainSize may have changed (old values aren't needed)
     Kokkos::realloc(SteeringVector, LocalActiveDomainSize);
@@ -2332,18 +2313,9 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeZ, ViewF
     Kokkos::realloc(DiagonalLength, LocalActiveDomainSize);
     Kokkos::realloc(DOCenter, 3 * LocalActiveDomainSize);
     Kokkos::realloc(CritDiagonalLength, 26 * LocalActiveDomainSize);
-    Kokkos::realloc(BufferNorthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferSouthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
 
     // Reset active cell data structures on device
     Kokkos::deep_copy(DiagonalLength, 0);
     Kokkos::deep_copy(DOCenter, 0);
     Kokkos::deep_copy(CritDiagonalLength, 0);
-    // Reset halo region structures on device
-    Kokkos::deep_copy(BufferSouthSend, 0.0);
-    Kokkos::deep_copy(BufferSouthRecv, 0.0);
-    Kokkos::deep_copy(BufferNorthSend, 0.0);
-    Kokkos::deep_copy(BufferNorthRecv, 0.0);
 }

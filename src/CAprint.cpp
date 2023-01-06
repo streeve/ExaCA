@@ -184,23 +184,29 @@ void SendBoolField(bool *VarToSend, int nz, int nx, int MyYSlices, int SendBufSi
 
 //*****************************************************************************/
 // Prints values of selected data structures to Paraview files
-void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyYSlices, int MyYOffset,
-                    ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID, ViewI CellType,
-                    ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string BaseFileName,
+void PrintExaCAData(int layernumber, Halo halo, ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID,
+                    ViewI CellType, ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string BaseFileName,
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercoolingVals, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, double XMin, double YMin,
                     double ZMin, int NumberOfLayers, bool PrintBinary, int RVESize) {
 
-    if (id == 0) {
+    auto nx = halo.global_x;
+    auto ny = halo.global_y;
+    auto nz = halo.global_z;
+    auto np = halo.mpi_size;
+    auto MyYSlices = halo.local_y;
+    auto MyYOffset = halo.offset_y;
+
+    if (halo.mpi_rank == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
         ViewI_H RecvYOffset(Kokkos::ViewAllocateWithoutInitializing("RecvYOffset"), np);
         ViewI_H RecvYSlices(Kokkos::ViewAllocateWithoutInitializing("RecvYSlices"), np);
         ViewI_H RBufSize(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np);
 
         for (int p = 1; p < np; p++) {
-            RecvYOffset(p) = YOffsetCalc(p, ny, np);
-            RecvYSlices(p) = YMPSlicesCalc(p, ny, np);
+            RecvYOffset(p) = halo.calcOffsetY();
+            RecvYSlices(p) = halo.calcLocalCellsY();
             RBufSize(p) = nx * RecvYSlices(p) * nz;
         }
         // Create variables for each possible data structure being collected on rank 0

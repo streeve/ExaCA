@@ -6,6 +6,7 @@
 #ifndef EXACA_PRINT_HPP
 #define EXACA_PRINT_HPP
 
+#include "CAghostnodes.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
@@ -29,9 +30,8 @@ void SendIntField(ViewI_H VarToSend, int nz, int nx, int MyYSlices, int SendBufS
                   int SendBufEndY);
 void SendFloatField(ViewF_H VarToSend, int nz, int nx, int MyYSlices, int SendBufSize, int SendBufStartY,
                     int SendBufEndY);
-void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyYSlices, int MyYOffset,
-                    ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID, ViewI CellType,
-                    ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string BaseFileName,
+void PrintExaCAData(int layernumber, Halo halo, ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID,
+                    ViewI CellType, ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string BaseFileName,
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercooling, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, double XMin, double YMin,

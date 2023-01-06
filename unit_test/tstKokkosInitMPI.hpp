@@ -38,19 +38,8 @@ void testSubstrateInit_ConstrainedGrowth() {
     // Each rank is assigned a different portion of the domain in Y
     int ny = 4 * np;
     int MyYSlices = 4;
-    int MyYOffset = 4 * id;
     int LocalActiveDomainSize = nx * MyYSlices * nzActive;
     int LocalDomainSize = nx * MyYSlices * nz;
-    // MPI rank locations relative to the global grid
-    bool AtNorthBoundary, AtSouthBoundary;
-    if (id == 0)
-        AtSouthBoundary = true;
-    else
-        AtSouthBoundary = false;
-    if (id == np - 1)
-        AtNorthBoundary = true;
-    else
-        AtNorthBoundary = false;
 
     double FractSurfaceSitesActive = 0.5; // Each rank will have 2 active cells each, on average
     double RNGSeed = 0.0;
@@ -71,17 +60,12 @@ void testSubstrateInit_ConstrainedGrowth() {
     ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
 
-    // Buffer sizes
-    int BufSizeX = nx;
-    int BufSizeZ = nzActive;
-
     // Send/recv buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
-    SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
-                                    NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID, DiagonalLength,
-                                    DOCenter, CritDiagonalLength, RNGSeed, np, BufferNorthSend, BufferSouthSend,
-                                    BufSizeX, AtNorthBoundary, AtSouthBoundary);
+    Halo halo(id, np, nx, ny, nz);
+    halo.resizeBuffers(nx, nzActive);
+    SubstrateInit_ConstrainedGrowth(FractSurfaceSitesActive, NeighborX, NeighborY, NeighborZ, GrainUnitVector,
+                                    NGrainOrientations, CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength,
+                                    RNGSeed, halo);
 
     // Copy CellType, GrainID views to host to check values
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -241,16 +225,6 @@ void testCellTypeInit_NoRemelt() {
     int MyYOffset = 0;
     int LocalActiveDomainSize = nx * MyYSlices * nzActive;
     int LocalDomainSize = nx * MyYSlices * nz;
-    // MPI rank locations relative to the global grid
-    bool AtNorthBoundary, AtSouthBoundary;
-    if (id == 0)
-        AtSouthBoundary = true;
-    else
-        AtSouthBoundary = false;
-    if (id == np - 1)
-        AtNorthBoundary = true;
-    else
-        AtNorthBoundary = false;
 
     // Initialize neighbor lists
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
@@ -306,18 +280,13 @@ void testCellTypeInit_NoRemelt() {
     // Cell types to be initialized
     ViewI CellType(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize);
 
-    // Buffers for ghost node data (fixed size)
-    int BufSizeX = nx;
-
-    // Send buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * nzActive, 5);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * nzActive, 5);
+    Halo halo(id, np, nx, MyYSlices, nz);
+    halo.resizeBuffers(nx, nzActive);
 
     // Initialize cell types and active cell data structures
-    CellTypeInit_NoRemelt(layernumber, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz, LocalActiveDomainSize,
-                          LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ, NGrainOrientations,
-                          GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength, DOCenter, LayerID,
-                          BufferNorthSend, BufferSouthSend, BufSizeX, AtNorthBoundary, AtSouthBoundary);
+    CellTypeInit_NoRemelt(layernumber, halo, ZBound_Low, LocalActiveDomainSize, CellType, CritTimeStep, NeighborX,
+                          NeighborY, NeighborZ, NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID,
+                          CritDiagonalLength, DOCenter, LayerID);
 
     // Copy views back to host to check the results
     ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
@@ -372,16 +341,16 @@ void testCellTypeInit_NoRemelt() {
         }
     }
 
-    auto BufferSouthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
-    auto BufferNorthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
+    auto BufferSouthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), halo.BufferSouthSend);
+    auto BufferNorthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), halo.BufferNorthSend);
     // Further check that active cell data was properly loaded into send buffers, and that locations in the send buffers
     // not corresponding to active cells were left alone (should still be 0s)
     for (int k = ZBound_Low; k <= ZBound_High; k++) {
         for (int i = 0; i < nx; i++) {
-            int GNPosition = (k - ZBound_Low) * BufSizeX + i; // Position of cell in buffer
+            int GNPosition = (k - ZBound_Low) * halo.buffer_size_x + i; // Position of cell in buffer
             // Check the south buffer - Data being sent to the "south" (BufferSouthSend) is from active cells at Y = 1
             int D3D1ConvPositionGlobal_South = k * nx * MyYSlices + i * MyYSlices + 1; // Position of cell on grid
-            if ((CellType_Host(D3D1ConvPositionGlobal_South) == Active) && (!(AtSouthBoundary))) {
+            if ((CellType_Host(D3D1ConvPositionGlobal_South) == Active) && (!(halo.boundary_south))) {
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 0), 1);
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 1), i + 0.5);
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), 1 + MyYOffset + 0.5);
@@ -395,7 +364,7 @@ void testCellTypeInit_NoRemelt() {
             }
             // Check the north buffer - Data being sent to the "north" (BufferNorthSend) is from active cells at Y = 2
             int D3D1ConvPositionGlobal_North = k * nx * MyYSlices + i * MyYSlices + 2;
-            if ((CellType_Host(D3D1ConvPositionGlobal_North) == Active) && (!(AtNorthBoundary))) {
+            if ((CellType_Host(D3D1ConvPositionGlobal_North) == Active) && (!(halo.boundary_north))) {
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 0), 1);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), i + 0.5);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), 2 + MyYOffset + 0.5);
