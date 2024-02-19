@@ -15,7 +15,6 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <vector>
 
 // Interfacial repsonse function with various functional forms.
 struct InterfacialResponseFunction {
