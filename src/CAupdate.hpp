@@ -29,6 +29,7 @@ void fillSteeringVector_NoRemelt(const int cycle, const Grid &grid, CellData<Mem
     // added to the steering vector
     Kokkos::parallel_for(
         "FillSV", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
+            auto sv = interface.steering_vector.access();
             int cell_type = celldata.cell_type(index);
             bool is_not_solid = (cell_type != Solid);
             int crit_time_step = temperature.layer_time_temp_history(index, 0, 1);
@@ -37,11 +38,12 @@ void fillSteeringVector_NoRemelt(const int cycle, const Grid &grid, CellData<Mem
             if (is_not_solid && past_crit_time) {
                 temperature.updateUndercooling(index);
                 if (cell_active) {
-                    interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) = index;
+                    sv(interface.num_steer(0), 1) = index;
                 }
             }
         });
     Kokkos::deep_copy(interface.num_steer_host, interface.num_steer);
+    interface.steering_vector.contribute();
 }
 
 // For the case where cells may melt and solidify multiple times, determine which cells are associated with the

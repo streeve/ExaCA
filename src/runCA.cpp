@@ -61,9 +61,13 @@ void runExaCA(int id, int np, std::string input_file) {
         celldata.initSubstrate(id, grid, inputs.rng_seed, temperature.number_of_solidification_events);
     MPI_Barrier(MPI_COMM_WORLD);
 
+    // Create scatter view - defaults are GPU atomics and CPU data duplication.
+    // Done outside the class to make it easy to store the SV type.
+    auto steer_sv = Kokkos::Experimental::create_scatter_view(steer_view);
+
     // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
     // (fixed size) and the steering vector/steering vector size on host/device
-    Interface<memory_space> interface(id, grid.domain_size);
+    Interface<memory_space, decltype(steer_sv)> interface(id, grid.domain_size, steer_sv);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event

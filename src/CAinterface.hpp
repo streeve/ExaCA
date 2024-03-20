@@ -24,7 +24,7 @@
 #include <vector>
 
 // Data representing the active cells at the solid-liquid interrface, including MPI buffers
-template <typename MemorySpace>
+template <typename MemorySpace, typename ScatterViewType>
 struct Interface {
 
     using memory_space = MemorySpace;
@@ -41,8 +41,10 @@ struct Interface {
     int buf_size, buf_components;
     view_type_float diagonal_length, octahedron_center, crit_diagonal_length;
     view_type_buffer buffer_south_send, buffer_north_send, buffer_south_recv, buffer_north_recv;
-    view_type_int send_size_south, send_size_north, steering_vector, num_steer;
+    view_type_int send_size_south, send_size_north, num_steer;
     view_type_int_host send_size_south_host, send_size_north_host, num_steer_host;
+
+    ScatterViewType steering_vector;
 
     // Neighbor lists
     neighbor_list_type neighbor_x, neighbor_y, neighbor_z;
@@ -69,7 +71,6 @@ struct Interface {
                                              buf_size_initial_estimate, buf_components_temp))
         , send_size_south(view_type_int("send_size_south", 1))
         , send_size_north(view_type_int("send_size_north", 1))
-        , steering_vector(view_type_int(Kokkos::ViewAllocateWithoutInitializing("steering_vector"), domain_size))
         , num_steer(view_type_int("steering_vector_size", 1))
         , send_size_south_host(view_type_int_host("send_size_south_host", 1))
         , send_size_north_host(view_type_int_host("send_size_north_host", 1))
