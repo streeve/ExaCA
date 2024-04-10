@@ -148,7 +148,7 @@ struct Inputs {
     PrintInputs print;
     std::string file_name;
     // How should log be printed?
-    int json_indent = 1;
+    int json_indent = 2;
 
     // Creates input struct with uninitialized/default values, used in unit tests
     Inputs(){};
