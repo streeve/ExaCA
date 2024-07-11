@@ -99,7 +99,6 @@ struct Inputs {
             domain.nz = input_data["Domain"]["Nz"];
         }
         else if ((simulation_type == "FromFile") || (simulation_type == "FromFinch")) {
-            // Number of layers, layer height are needed for problem type and R
             domain.number_of_layers = input_data["Domain"]["NumberOfLayers"];
             domain.layer_height = input_data["Domain"]["LayerOffset"];
         }
@@ -128,6 +127,7 @@ struct Inputs {
             nucleation.dtsigma = input_data["Nucleation"]["StDev"];
         }
 
+        // Get interfacial response function coefficients and freezing range from the material input file
         parseIRF(id);
 
         // Temperature inputs:
@@ -212,8 +212,8 @@ struct Inputs {
             // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
             temperature.G = input_data["TemperatureData"]["G"];
             temperature.R = input_data["TemperatureData"]["R"];
-            // Optional initial undercooling for problem type C (required for type SingleGrain). Defaults to 0 for
-            // problem type C if not given, should be a positive number
+            // Optional initial undercooling for problem type Directional (required for type SingleGrain). Defaults to 0
+            // for problem type Directional if not given, should be a positive number
             if (input_data["TemperatureData"].contains("InitUndercooling"))
                 if (input_data["TemperatureData"]["InitUndercooling"] < 0)
                     throw std::runtime_error("Error: optional temperature data argument InitUndercooling should be "
@@ -726,7 +726,7 @@ struct Inputs {
             if (irf.function == irf.cubic)
                 exaca_log << "       \"D\": " << (irf.D) << "," << std::endl;
             exaca_log << "       \"FreezingRange\": " << (irf.freezing_range) << std::endl;
-            exaca_log << "   },";
+            exaca_log << "   }," << std::endl;
             exaca_log << "   \"NumberMPIRanks\": " << np << "," << std::endl;
             exaca_log << "   \"Decomposition\": {" << std::endl;
             exaca_log << "       \"SubdomainYSize\": [";
@@ -744,6 +744,7 @@ struct Inputs {
         }
     }
 
+    // Get interfacial response function coefficients and freezing range from the material input file
     void parseIRF(const int id) {
         if (id == 0)
             std::cout << "Parsing material file using json input format" << std::endl;
@@ -772,6 +773,9 @@ struct Inputs {
             throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
                                      "supported options are quadratic, cubic, and exponential");
         irf.freezing_range = data["freezing_range"];
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Successfully parsed material input file" << std::endl;
     }
 };
 
