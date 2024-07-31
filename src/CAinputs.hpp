@@ -33,6 +33,9 @@ struct Inputs {
     SubstrateInputs substrate;
     PrintInputs print;
     std::string file_name;
+    int verbosity;
+    bool screen_output;
+    bool rank_output;
 
     // Creates input struct with uninitialized/default values, used in unit tests
     Inputs(){};
@@ -44,6 +47,13 @@ struct Inputs {
         std::ifstream input_data_stream(input_file);
         nlohmann::json input_data = nlohmann::json::parse(input_data_stream);
 
+        // Determine whether to print on this rank
+        rank_output = id == 0;
+        verbosity = 1;
+        if (!input_data.contains("Verbosity"))
+            verbosity = input_data["Verbosity"];
+        screen_output = verbosity > 0 && rank_output;
+
         // General inputs
         simulation_type = input_data["SimulationType"];
         // "Directional": directional solidification
@@ -51,15 +61,17 @@ struct Inputs {
         // "FromFile": time-temperature history comes from external files
         if (simulation_type == "C") {
             simulation_type = "Directional";
-            std::cout << "Warning: Problem type \"C\" is now \"Directional\". Previous name will be removed in a "
-                         "future release."
-                      << std::endl;
+            if (screen_output)
+                std::cout << "Warning: Problem type \"C\" is now \"Directional\". Previous name will be removed in a "
+                             "future release."
+                          << std::endl;
         }
         else if (simulation_type == "RM" || simulation_type == "R") {
             simulation_type = "FromFile";
-            std::cout
-                << "Warning: Problem type \"R\" is now \"FromFile\". Previous name will be removed in a future release."
-                << std::endl;
+            if (screen_output)
+                std::cout << "Warning: Problem type \"R\" is now \"FromFile\". Previous name will be removed in a "
+                             "future release."
+                          << std::endl;
         }
         else if ((simulation_type == "S") || (simulation_type == "SM")) {
             throw std::runtime_error("Error: The spot melt array simulation type (Problem type S or SM) was removed "
@@ -106,7 +118,7 @@ struct Inputs {
             std::vector<std::string> unused_spot_inputs = {"NSpotsX", "NSpotsY", "SpotOffset", "RSpots"};
             int num_unused_spot_inputs = unused_spot_inputs.size();
             for (int n = 0; n < num_unused_spot_inputs; n++)
-                if ((input_data["Domain"].contains(unused_spot_inputs[n])) && (id == 0))
+                if ((input_data["Domain"].contains(unused_spot_inputs[n])) && (screen_output))
                     std::cout << "Note: Input " << unused_spot_inputs[n] << " is unused in the Spot problem type"
                               << std::endl;
             // Radius is given in micrometers, convert to cells
@@ -133,7 +145,7 @@ struct Inputs {
         // Temperature inputs:
         if ((simulation_type == "FromFile") || (simulation_type == "FromFinch")) {
             if (simulation_type == "FromFile") {
-                if ((input_data["TemperatureData"].contains("HeatTransferCellSize")) && (id == 0))
+                if ((input_data["TemperatureData"].contains("HeatTransferCellSize")) && (screen_output))
                     std::cout << "Note: Heat transport data cell size is no longer an input used in ExaCA, temperature "
                                  "data must be at the same resolution as the CA cell size"
                               << std::endl;
@@ -283,7 +295,7 @@ struct Inputs {
                 }
             }
             else if (mode_deprecated_input) {
-                if (id == 0)
+                if (screen_output)
                     std::cout
                         << "Warning: FractionSurfaceSitesActive is a deprecated input for problem type C and support "
                            "will be removed in a future release. See README for updated initialization options"
@@ -344,7 +356,7 @@ struct Inputs {
                             "Error: Density of powder surface sites active must be larger than 0 and less "
                             "than 1/(CA cell volume)");
                 }
-                if ((input_data["Substrate"].contains("PowderFirstLayer")) && (id == 0))
+                if ((input_data["Substrate"].contains("PowderFirstLayer")) && (screen_output))
                     std::cout
                         << "Warning: PowderFirstLayer input is no longer used, the top of the first layer must be "
                            "specified using BaseplateTopZ (which will otherwise default to Z = 0)"
@@ -377,7 +389,7 @@ struct Inputs {
         }
 
         // Print information to console about the input file data read
-        if (id == 0) {
+        if (screen_output) {
             std::cout << "Material simulated is " << material_filename << std::endl;
             std::cout << "CA cell size is " << domain.deltax * pow(10, 6) << " microns" << std::endl;
             std::cout << "Nucleation density is " << nucleation.n_max << " per m^3" << std::endl;
@@ -428,14 +440,14 @@ struct Inputs {
                         required_field_found[field] = true;
                 }
             }
-            if ((!valid_field) && (id == 0)) {
+            if ((!valid_field) && (rank_output)) {
                 std::string error =
                     "Error: field '" + key + "' from Printing section of input file is not recognized by ExaCA";
                 throw std::runtime_error(error);
             }
         }
         for (int field = 0; field < num_valid_print_fields; field++) {
-            if ((print.required_print_field[field]) && (!required_field_found[field]) && (id == 0)) {
+            if ((print.required_print_field[field]) && (!required_field_found[field]) && (rank_output)) {
                 std::string error = "Error: Required field \"" + print.print_field_label[field] +
                                     "\" from Printing section of input file was not found";
                 throw std::runtime_error(error);
@@ -459,7 +471,7 @@ struct Inputs {
                     valid_field = true;
                 }
             }
-            if ((!valid_field) && (id == 0)) {
+            if ((!valid_field) && (rank_output)) {
                 std::string error = "Error: Field '" + field_read + "' from " + fieldtype +
                                     " Printing section of input file is not recognized by ExaCA";
                 throw std::runtime_error(error);
@@ -545,7 +557,7 @@ struct Inputs {
         // List of layers following which interlayer data should be printed (will always print after last layer by
         // default)
         if (input_data["Printing"]["Interlayer"].contains("Layers")) {
-            if ((id == 0) && (input_data["Printing"]["Interlayer"].contains("Increment")))
+            if ((screen_output) && (input_data["Printing"]["Interlayer"].contains("Increment")))
                 std::cout << "Warning: A list of layers to print and a layer increment were both present in the "
                              "input file print options, the layer increment will be ignored"
                           << std::endl;
@@ -553,7 +565,7 @@ struct Inputs {
             for (int n = 0; n < num_print_layers; n++) {
                 int print_layer_val = input_data["Printing"]["Interlayer"]["Layers"][n];
                 if (print_layer_val >= domain.number_of_layers) {
-                    if (id == 0)
+                    if (screen_output)
                         std::cout << "Note: adjusting layer value of " << print_layer_val << " to "
                                   << domain.number_of_layers - 1 << " as the simulation only contains layers 0 through "
                                   << domain.number_of_layers << std::endl;
@@ -619,7 +631,7 @@ struct Inputs {
         // If no ExaConstit data is to be printed, no intralayer nor interlayer fields are to be printed, and no front
         // undercooling data is to be printed, throw an error (likely an input file typo, ExaCA should at the very least
         // output some feature about the simulated data)
-        if (id == 0)
+        if (screen_output)
             std::cout << "Successfully parsed data printing options from input file" << std::endl;
     }
 
@@ -652,7 +664,7 @@ struct Inputs {
         MPI_Gather(&grid.ny_local, 1, MPI_INT, ny_local_allranks.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
         MPI_Gather(&grid.y_offset, 1, MPI_INT, y_offset_allranks.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        if (id == 0) {
+        if (rank_output) {
             std::string FName = print.path_to_output + print.base_filename + ".json";
             std::cout << "Printing ExaCA log file" << std::endl;
             std::ofstream exaca_log;
@@ -728,16 +740,19 @@ struct Inputs {
             exaca_log << "       \"FreezingRange\": " << (irf.freezing_range) << std::endl;
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"NumberMPIRanks\": " << np << "," << std::endl;
-            exaca_log << "   \"Decomposition\": {" << std::endl;
-            exaca_log << "       \"SubdomainYSize\": [";
-            for (int i = 0; i < np - 1; i++)
-                exaca_log << ny_local_allranks[i] << ",";
-            exaca_log << ny_local_allranks[np - 1] << "]," << std::endl;
-            exaca_log << "       \"SubdomainYOffset\": [";
-            for (int i = 0; i < np - 1; i++)
-                exaca_log << y_offset_allranks[i] << ",";
-            exaca_log << y_offset_allranks[np - 1] << "]" << std::endl;
-            exaca_log << "   }," << std::endl;
+            // Only print if extra verbose output.
+            if (verbosity > 1) {
+                exaca_log << "   \"Decomposition\": {" << std::endl;
+                exaca_log << "       \"SubdomainYSize\": [";
+                for (int i = 0; i < np - 1; i++)
+                    exaca_log << ny_local_allranks[i] << ",";
+                exaca_log << ny_local_allranks[np - 1] << "]," << std::endl;
+                exaca_log << "       \"SubdomainYOffset\": [";
+                for (int i = 0; i < np - 1; i++)
+                    exaca_log << y_offset_allranks[i] << ",";
+                exaca_log << y_offset_allranks[np - 1] << "]" << std::endl;
+                exaca_log << "   }," << std::endl;
+            }
             exaca_log << timers.printLog() << std::endl;
             exaca_log << "}" << std::endl;
             exaca_log.close();
@@ -746,7 +761,7 @@ struct Inputs {
 
     // Get interfacial response function coefficients and freezing range from the material input file
     void parseIRF(const int id) {
-        if (id == 0)
+        if (screen_output)
             std::cout << "Parsing material file using json input format" << std::endl;
         std::ifstream material_data(material_filename);
         nlohmann::json data = nlohmann::json::parse(material_data);
@@ -774,7 +789,7 @@ struct Inputs {
                                      "supported options are quadratic, cubic, and exponential");
         irf.freezing_range = data["freezing_range"];
         MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
+        if (screen_output)
             std::cout << "Successfully parsed material input file" << std::endl;
     }
 };
