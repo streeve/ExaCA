@@ -15,6 +15,9 @@ target_link_libraries(ExaCA-Core PUBLIC
     Kokkos::kokkos
     nlohmann_json::nlohmann_json
 )
+if(ExaCA_ENABLE_ADIOS2)
+  target_link_libraries(ExaCA-Core PUBLIC adios2::cxx11_mpi)
+endif()
 if(ExaCA_ENABLE_FINCH)
   target_link_libraries(ExaCA-Core PUBLIC Finch::Core Finch::ScanPaths)
 endif()

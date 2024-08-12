@@ -38,6 +38,8 @@ else()
   endif()
 endif()
 
+find_package(ADIOS2 REQUIRED)
+
 find_package(Git)
 if(GIT_FOUND AND IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/.git)
   EXECUTE_PROCESS(
